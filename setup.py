@@ -42,7 +42,7 @@ with TemporaryDirectory(dir = ".") as build_directory:
 	js_copyright = "pas.http.dom_editor #echo(pasHttpDomEditorVersion)# - (C) direct Netware Group - All rights reserved"
 
 	parameters = { "pasHttpDomEditorVersion": get_version(),
-	               "js_header": css_js_copyright, "js_min_filenames": True
+	               "js_header": js_copyright, "js_min_filenames": True
 	             }
 
 	InstallData.add_install_data_callback(InstallJsData.callback, [ "data" ])
