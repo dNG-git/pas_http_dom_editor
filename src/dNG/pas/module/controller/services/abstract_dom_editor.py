@@ -82,18 +82,20 @@ Sets the ID of the client DOM tree to manipulate.
 		self.dom_id = dom_id
 	#
 
-	def _set_dom_replace_oset_result(self, template_name, content):
+	def _set_dom_replace_oset_result(self, template_name, content, **kwargs):
 	#
 		"""
 @TODO: Document me
 		"""
 
+		oset = self.request.get_dsd("doset")
+
 		parser = FileParser()
-		parser.set_oset(self.response.get_oset())
-		self._set_dom_replace_result(parser.render(template_name, content))
+		if (oset is not None): parser.set_oset(oset)
+		self._set_dom_replace_result(parser.render(template_name, content), **kwargs)
 	#
 
-	def _set_dom_replace_result(self, dom_value):
+	def _set_dom_replace_result(self, dom_value, **kwargs):
 	#
 		"""
 @TODO: Document me
@@ -105,10 +107,14 @@ Sets the ID of the client DOM tree to manipulate.
 		if (dom_id is None): dom_id = InputFilter.filter_file_path(self.request.get_dsd("ddom_id", ""))
 		elif (self.request.get_dsd("ddom_id", "") != dom_id): api_call = "replace_dom_id"
 
-		self.response.set_result({ "api_call": api_call,
-		                           "dom_id": dom_id,
-		                           "dom_value": dom_value
-		                         })
+		result = kwargs
+
+		result.update({ "api_call": api_call,
+		                "dom_id": dom_id,
+		                "dom_value": dom_value
+		              })
+
+		self.response.set_result(result)
 	#
 #
 
