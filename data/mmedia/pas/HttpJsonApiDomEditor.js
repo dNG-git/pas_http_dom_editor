@@ -23,17 +23,17 @@ https://www.direct-netware.de/redirect?licenses;mpl2
 define([ 'jquery',
          'Hammer',
          'djt/ClientStorage.min',
-         'djt/NodePosition.min',
-         'djt/Spinner.min',
-         'pas/HttpJsonApiRequest.min'
+         'pas/ExecutingSpinner.min',
+         'pas/HttpJsonApiRequest.min',
+         'pas/ModalOverlay.min'
        ],
-function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
+function($, Hammer, ClientStorage, ExecutingSpinner, HttpJsonApiRequest, ModalOverlay) {
 	/**
 	 * List of response operations that can be cached client-side.
 	 *
 	 * @constant
 	 */
-	var SUPPORTED_CACHE_OPERATIONS = [ 'replace_dom', 'replace_dom_id' ];
+	var SUPPORTED_CACHE_OPERATIONS = [ 'append_overlay_dom', 'replace_dom', 'replace_dom_id' ];
 
 	/**
 	 * The "execute()" helper function is used for JavaScript events or static
@@ -57,7 +57,7 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 	 * @param {object} args Arguments to initialize a given HttpJsonApiDomEditor
 	 */
 	function HttpJsonApiDomEditor(args) {
-		if (args === undefined || (!('id' in args))) {
+		if (args === undefined) {
 			throw new Error('Missing required argument');
 		}
 
@@ -65,47 +65,109 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 			self._pas_HttpJsonApiDomEditor_execute = execute;
 		}
 
-		this.$base_node = $("#" + args.id);
+		this.$base_node = null;
 		this.executing_spinner = null;
-		this.executing_spinner_node_position = null;
-		this.id = args.id;
+		this.id = null;
+		this.modal_overlay = null;
 
-		if ('type' in args && args.type == 'link_activated') {
+		if ('id' in args) {
+			this.$base_node = $("#" + args.id);
+			this.id = args.id;
+		} else if ('jQnode' in args) {
+			this.$base_node = args.jQnode;
+			this.id = this.$base_node.attr('id');
+
+			if (this.id === undefined) {
+				this.id = ("hjapi_dom_editor_id_" + Math.random().toString().replace(/\W/,'_'));
+				this.$base_node.attr('id', this.id);
+			}
+		}
+
+		if (this.$base_node == null) {
+			throw new Error('Missing required arguments');
+		}
+
+		if ((!('init_executing_spinner' in args)) || args.init_executing_spinner) {
+			this.executing_spinner = new ExecutingSpinner({ id: args.id });
+		}
+
+		if ('type' in args) {
 			var _this = this;
 
-			this.$base_node.find('a').each(function(index) {
-				var $link = $(this);
+			if ($.inArray(args.type, [ 'interaction_activated', 'link_activated' ]) > -1) {
+				this.$base_node.find('a').each(function(index) {
+					var $link = $(this);
 
-				var query_string = $link.data('pas-dom-editor-query');
+					var overlay_action = $link.data('pas-dom-editor-overlay-action');
+					var query_string = $link.data('pas-dom-editor-query');
 
-				if (query_string !== undefined) {
-					if ($link.attr('href') !== undefined) {
+					if ((overlay_action !== undefined || query_string !== undefined)
+					    && $link.attr('href') !== undefined
+					   ) {
 						$link.attr('href', 'javascript:');
 					}
 
-					var link_listener = new Hammer(this);
+					if (overlay_action == 'destroy') {
+						Hammer(this).on('tap', function(event) {
+							_this.destroy();
+						});
+					}
 
-					link_listener.on('tap', function(event) {
-						_this.execute({ query: query_string });
-					});
-				}
-			});
+					if (query_string !== undefined) {
+						Hammer(this).on('tap', function(event) {
+							_this.execute({ query: query_string });
+						});
+					}
+				});
+			}
+
+			if (args.type == 'interaction_activated') {
+				this.$base_node.find('form').each(function(index) {
+					var $form = $(this);
+
+					var overlay_action = $form.data('pas-dom-editor-overlay-action');
+					var query_string = $form.data('pas-dom-editor-query');
+
+					if ((overlay_action !== undefined || query_string !== undefined)
+					    && $form.attr('action') !== undefined
+					   ) {
+						$form.attr('action', 'javascript:');
+					}
+
+					if (overlay_action == 'destroy') {
+						$form.on('submit', function(event) {
+							_this.destroy();
+						});
+					}
+
+					if (query_string !== undefined) {
+						$form.on('submit', function(event) {
+							_this.execute_form_submit({ jQform: $form, query: query_string });
+						});
+					}
+				});
+			}
 		}
 	}
 
 	/**
-	 * Stops and destroys the "executing spinner" animation.
+	 * Destroys the initialized modal overlay node.
 	 *
 	 * @method
 	 */
-	HttpJsonApiDomEditor.prototype._destroy_executing_spinner = function() {
+	HttpJsonApiDomEditor.prototype.destroy = function() {
 		if (this.executing_spinner != null) {
-			this.executing_spinner_node_position.destroy();
-			this.executing_spinner.get_jQnode().remove();
-
+			this.executing_spinner.destroy();
 			this.executing_spinner = null;
-			this.executing_spinner_node_position = null;
 		}
+
+		if (this.modal_overlay != null) {
+			this.modal_overlay.destroy();
+			this.modal_overlay = null;
+		}
+
+		this.$base_node.remove();
+		this.$base_node = null;
 	}
 
 	/**
@@ -115,21 +177,69 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 	 *
 	 * @param {object} response API call response
 	 */
-	HttpJsonApiDomEditor.prototype._handle = function(response) {
-		if (response.api_call == 'replace_dom' && 'dom_value' in response) {
+	HttpJsonApiDomEditor.prototype._handle = function(response, response_promise) {
+		if ((response.api_call == 'append_overlay_dom'
+		     || (response.api_call == 'append_overlay_dom_id' && 'dom_id' in response)
+		    )
+		    && 'dom_value' in response
+		   ) {
+			var is_base_node_target = (response.api_call == 'append_overlay_dom');
+
+			var $base_node = $(is_base_node_target ? this.$base_node : "#" + response.dom_id);
+			var $overlay_node = $(response.dom_value);
+			var $parent_node = $base_node.parent();
+
+			var overlay_node_id = $overlay_node.attr('id');
+
+			if (overlay_node_id === undefined) {
+				overlay_node_id = ("hjapi_dom_editor_id_" + Math.random().toString().replace(/\W/,'_'));
+				$overlay_node.attr('id', overlay_node_id);
+			}
+
+			$parent_node.append($overlay_node);
+
+			var modal_overlay = new ModalOverlay({ jQmodal: $overlay_node, jQoverlayed: $base_node });
+			var on_closed_query = $overlay_node.data('pas-dom-editor-overlay-on-closed-query');
+
+			if (on_closed_query !== undefined) {
+				var _this = this;
+
+				$overlay_node.one('xdomremove', function(event) {
+					_this.execute({ query: on_closed_query });
+				});
+			}
+
+			var hjapi_dom_editor = new HttpJsonApiDomEditor({ jQnode: $overlay_node, type: 'interaction_activated' });
+			hjapi_dom_editor.set_modal_overlay(modal_overlay);
+
+			this._handle_response_api_call('on_appended', response);
+		} else if (response.api_call == 'destroy_dom') {
+			this.destroy();
+			this._handle_response_api_call('on_destroyed', response);
+		} else if (response.api_call == 'replace_dom' && 'dom_value' in response) {
 			var $new_node = $(response.dom_value);
 
 			if ($new_node.attr('id') === undefined) {
 				$new_node.attr('id', this.id);
 			}
 
-			// Destroy event listeners before replacing the referenced node
-			if (this.executing_spinner_node_position != null) {
-				this.executing_spinner_node_position.destroy();
+			if (this.modal_overlay == null) {
+				if (this.executing_spinner != null) {
+					// Destroy event listeners before replacing the referenced node
+					this.executing_spinner.destroy_listeners();
+				}
+
+				this.$base_node.replaceWith($new_node);
+				this.$base_node = $new_node;
+			} else {
+				this.$base_node.children().remove();
+				this.$base_node.append($new_node.children());
+
+				var hjapi_dom_editor = new HttpJsonApiDomEditor({ jQnode: this.$base_node, type: 'interaction_activated' });
+				hjapi_dom_editor.set_modal_overlay(this.modal_overlay);
 			}
 
-			this.$base_node.replaceWith($new_node);
-			this.$base_node = $new_node;
+			this.$base_node.trigger('xdomchanged');
 
 			this._handle_response_api_call('on_replaced', response);
 		} else if (response.api_call == 'replace_dom_id'
@@ -144,11 +254,16 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 			}
 
 			$current_node.replaceWith($new_node);
+			$current_node.trigger('xdomchanged');
 
 			this._handle_response_api_call('on_replaced', response);
 		}
 
-		this._destroy_executing_spinner();
+		if (this.executing_spinner != null) {
+			this.executing_spinner.destroy();
+		}
+
+		response_promise.resolve({ response: response });
 	}
 
 	/**
@@ -158,10 +273,15 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 	 *
 	 * @param {string} error_message Error message returned or to be shown.
 	 */
-	HttpJsonApiDomEditor.prototype._handle_error = function(error_message) {
-		this._destroy_executing_spinner();
+	HttpJsonApiDomEditor.prototype._handle_error = function(error_message, response_promise) {
+		if (this.executing_spinner != null) {
+			this.executing_spinner.destroy();
+		}
+
 		alert(error_message);
 		// @TODO: NotificationBox.add_error(error_message);
+
+		response_promise.fail({ error_message: error_message });
 	}
 
 	/**
@@ -206,6 +326,8 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 			throw new Error('Missing required argument');
 		}
 
+		var _return = null;
+
 		var cache_data = null;
 		var client_storage = null;
 
@@ -222,16 +344,17 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 		}
 
 		if (cache_data == null) {
-			var hjapi_promise = this._execute(args);
+			_return = this._execute(args);
 
 			if (client_storage != null) {
-				hjapi_promise.done(function(data, status, jQxhr) {
-					var cache_supported = ('api_call' in data
-					                       && $.inArray(data.api_call, SUPPORTED_CACHE_OPERATIONS) > -1
+				_return.done(function(data) {
+					var cache_supported = ('response' in data
+					                       && 'api_call' in data.response
+					                       && $.inArray(data.response.api_call, SUPPORTED_CACHE_OPERATIONS) > -1
 					                      );
 
 					if (cache_supported) {
-						cache_data = data;
+						cache_data = data.response;
 						cache_data._cache_value = args.cache_value;
 						cache_data._proto = '1';
 
@@ -240,9 +363,50 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 				});
 			}
 		} else {
-			this._show_executing_spinner();
-			this._handle(cache_data);
+			if (this.executing_spinner != null) {
+				this.executing_spinner.show();
+			}
+
+			var $deferred = $.Deferred();
+			this._handle(cache_data, $deferred);
 		}
+
+		return _return;
+	}
+
+	/**
+	 * Executes an form submission API call.
+	 *
+	 * @method
+	 *
+	 * @param {object} args API call arguments
+	 */
+	HttpJsonApiDomEditor.prototype.execute_form_submit = function(args) {
+		if (args === undefined || (!('query' in args))) {
+			throw new Error('Missing required arguments');
+		}
+
+		var $form = null;
+
+		if ('id' in args) {
+			$form = $("#" + args.id);
+		} else if ('jQform' in args) {
+			$form = args.jQform;
+		}
+
+		if ($form == null) {
+			throw new Error('Missing required arguments');
+		}
+
+		args['data'] = { };
+
+		$.each($form.serializeArray(), function(i, field_data) {
+			args.data[field_data['name']] = field_data['value'];
+		});
+
+		args['method'] = 'POST';
+
+		return this._execute(args);
 	}
 
 	/**
@@ -257,28 +421,42 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 	HttpJsonApiDomEditor.prototype._execute = function(args) {
 		var hjapi_request = new HttpJsonApiRequest({ endpoint: 'pas/dynamic/' });
 
-		this._show_executing_spinner();
-		var _return = hjapi_request.call({ data: args.query });
+		if (this.executing_spinner != null) {
+			this.executing_spinner.show();
+		}
+
+		if ('data' in args) {
+			data = args.data;
+			query_data = hjapi_request.parse_query_string(args.query);
+			$.extend(data, query_data);
+
+			args.data = data;
+		} else {
+			args['data'] = args.query;
+		}
+
+		var hjapi_promise = hjapi_request.call(args);
+		var _return = $.Deferred();
 
 		var _this = this;
 
-		_return.done(function(data, status, jQxhr) {
+		hjapi_promise.done(function(data, status, jQxhr) {
 			if ('api_call' in data) {
-				_this._handle(data);
+				_this._handle(data, _return);
 			} else {
-				_this._handle_error(status);
+				_this._handle_error(status, _return);
 			}
 		});
 
-		_return.fail(function(jQxhr, status, error) {
+		hjapi_promise.fail(function(jQxhr, status, error) {
 			if ('responseJSON' in jQxhr
 			    && jQxhr.responseJSON !== undefined
 			    && 'error' in jQxhr.responseJSON
 			    && 'message' in jQxhr.responseJSON.error
 			   ) {
-				_this._handle_error(jQxhr.responseJSON.error.message);
+				_this._handle_error(jQxhr.responseJSON.error.message, _return);
 			} else {
-				_this._handle_error(error);
+				_this._handle_error(error, _return);
 			}
 		});
 
@@ -309,29 +487,14 @@ function($, Hammer, ClientStorage, NodePosition, Spinner, HttpJsonApiRequest) {
 	}
 
 	/**
-	 * Shows the "executing spinner" animation.
+	 * Sets the modal overlay instance for this DOM editor.
 	 *
 	 * @method
+	 *
+	 * @param {object} modal_overlay Modal overlay instance
 	 */
-	HttpJsonApiDomEditor.prototype._show_executing_spinner = function() {
-		if (this.executing_spinner == null) {
-			var spinner_width = this.$base_node.width();
-			var spinner_height = this.$base_node.height();
-			var spinner_size = ((spinner_width < spinner_height) ? spinner_width : spinner_height);
-
-			this.executing_spinner = new Spinner({ parent_id: this.id,
-			                                       width: spinner_size,
-			                                       height: spinner_size
-			                                     });
-
-			this.executing_spinner_node_position = new NodePosition({ jQat: this.$base_node,
-			                                                          jQmy: this.executing_spinner.get_jQnode(),
-			                                                          at_reference: 'middle center',
-			                                                          my_reference: 'middle center'
-			                                                        });
-		}
-
-		this.executing_spinner.show();
+	HttpJsonApiDomEditor.prototype.set_modal_overlay = function(modal_overlay) {
+		this.modal_overlay = modal_overlay;
 	}
 
 	return HttpJsonApiDomEditor;
