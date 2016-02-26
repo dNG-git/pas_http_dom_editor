@@ -209,6 +209,27 @@ function($, Hammer, ClientStorage, ExecutingSpinner, HttpJsonApiRequest, ModalOv
 				});
 			}
 
+			var resize_request = $overlay_node.data('pas-dom-editor-overlay-resize');
+
+			if (resize_request !== undefined) {
+				var overlay_css = { };
+
+				if (resize_request == 'width') {
+					overlay_css['width'] = $base_node.outerWidth() + "px";
+				} else if (resize_request == 'height') {
+					overlay_css['height'] = $base_node.outerHeight() + "px";
+				} else if (resize_request == 'width+height') {
+					overlay_css['width'] = $base_node.outerWidth() + "px";
+					overlay_css['height'] = $base_node.outerHeight() + "px";
+				}
+
+				if ('height' in overlay_css) {
+					overlay_css['overflow'] = 'auto';
+				}
+
+				$overlay_node.css(overlay_css);
+			}
+
 			var hjapi_dom_editor = new HttpJsonApiDomEditor({ jQnode: $overlay_node, type: 'interaction_activated' });
 			hjapi_dom_editor.set_modal_overlay(modal_overlay);
 
