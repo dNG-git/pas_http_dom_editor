@@ -178,11 +178,26 @@ function($, Hammer, ClientStorage, ExecutingSpinner, HttpJsonApiRequest, ModalOv
 	 * @param {object} response API call response
 	 */
 	HttpJsonApiDomEditor.prototype._handle = function(response, response_promise) {
-		if ((response.api_call == 'append_overlay_dom'
-		     || (response.api_call == 'append_overlay_dom_id' && 'dom_id' in response)
-		    )
-		    && 'dom_value' in response
-		   ) {
+		if (response.api_call == 'append_dom' && 'dom_value' in response) {
+			this.$base_node.append($(response.dom_value));
+			this.$base_node.trigger('xdomchanged');
+
+			this._handle_response_api_call('on_appended', response);
+		} else if (response.api_call == 'append_dom_id'
+		           && 'dom_id' in response
+		           && 'dom_value' in response
+		          ) {
+			var $base_node = $("#" + response.dom_id);
+
+			$base_node.append($(response.dom_value));
+			$base_node.trigger('xdomchanged');
+
+			this._handle_response_api_call('on_appended', response);
+		} else if ((response.api_call == 'append_overlay_dom'
+		            || (response.api_call == 'append_overlay_dom_id' && 'dom_id' in response)
+		           )
+		           && 'dom_value' in response
+		          ) {
 			var is_base_node_target = (response.api_call == 'append_overlay_dom');
 
 			var $base_node = $(is_base_node_target ? this.$base_node : "#" + response.dom_id);

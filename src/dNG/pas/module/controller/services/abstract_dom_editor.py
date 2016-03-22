@@ -69,6 +69,41 @@ Checks if the response instance supports returning API result dicts.
 		       )
 	#
 
+	def _set_append_dom_oset_result(self, template_name, content, **kwargs):
+	#
+		"""
+@TODO: Document me
+		"""
+
+		oset = self.request.get_dsd("doset")
+
+		parser = FileParser()
+		if (oset is not None): parser.set_oset(oset)
+		self._set_append_dom_result(parser.render(template_name, content), **kwargs)
+	#
+
+	def _set_append_dom_result(self, dom_value, **kwargs):
+	#
+		"""
+@TODO: Document me
+		"""
+
+		api_call = "append_dom"
+		dom_id = self.dom_id
+
+		if (dom_id is None): dom_id = InputFilter.filter_file_path(self.request.get_dsd("ddom_id", ""))
+		elif (self.request.get_dsd("ddom_id", "") != dom_id): api_call = "append_dom_id"
+
+		result = kwargs
+
+		result.update({ "api_call": api_call,
+		                "dom_id": dom_id,
+		                "dom_value": dom_value
+		              })
+
+		self.response.set_result(result)
+	#
+
 	def _set_destroy_dom_result(self, **kwargs):
 	#
 		"""
