@@ -72,7 +72,14 @@ Checks if the response instance supports returning API result dicts.
 	def _set_append_dom_oset_result(self, template_name, content, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns and activates the client API "append_dom" after rendering the given
+content with the OSet template. "append_dom_id" is used in case the client
+target DOM ID does not correspond to the one calling the server API.
+
+:param template_name: OSet template name
+:param content: Content object
+
+:since: v0.1.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -85,7 +92,13 @@ Checks if the response instance supports returning API result dicts.
 	def _set_append_dom_result(self, dom_value, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns the DOM value given and activates the client API "append_dom".
+"append_dom_id" is used in case the client target DOM ID does not correspond
+to the one calling the server API.
+
+:param dom_value: DOM value to response
+
+:since: v0.1.00
 		"""
 
 		api_call = "append_dom"
@@ -107,7 +120,9 @@ Checks if the response instance supports returning API result dicts.
 	def _set_destroy_dom_result(self, **kwargs):
 	#
 		"""
-@TODO: Document me
+Activates the client API "destroy_dom".
+
+:since: v0.1.00
 		"""
 
 		result = kwargs
@@ -132,7 +147,15 @@ Sets the ID of the client DOM tree to manipulate.
 	def _set_append_overlay_dom_oset_result(self, template_name, content, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns and activates the client API "append_overlay_dom" after rendering
+the given content with the OSet template. "append_overlay_dom_id" is used in
+case the client target DOM ID does not correspond to the one calling the
+server API.
+
+:param template_name: OSet template name
+:param content: Content object
+
+:since: v0.1.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -145,7 +168,13 @@ Sets the ID of the client DOM tree to manipulate.
 	def _set_append_overlay_dom_result(self, dom_value, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns the DOM value given and activates the client API
+"append_overlay_dom". "append_overlay_dom_id" is used in case the client
+target DOM ID does not correspond to the one calling the server API.
+
+:param dom_value: DOM value to response
+
+:since: v0.1.00
 		"""
 
 		api_call = "append_overlay_dom"
@@ -167,7 +196,14 @@ Sets the ID of the client DOM tree to manipulate.
 	def _set_replace_dom_oset_result(self, template_name, content, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns and activates the client API "replace_dom" after rendering the given
+content with the OSet template. "replace_dom_id" is used in case the client
+target DOM ID does not correspond to the one calling the server API.
+
+:param template_name: OSet template name
+:param content: Content object
+
+:since: v0.1.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -180,7 +216,13 @@ Sets the ID of the client DOM tree to manipulate.
 	def _set_replace_dom_result(self, dom_value, **kwargs):
 	#
 		"""
-@TODO: Document me
+Returns the DOM value given and activates the client API "replace_dom".
+"replace_dom_id" is used in case the client target DOM ID does not
+correspond to the one calling the server API.
+
+:param dom_value: DOM value to response
+
+:since: v0.1.00
 		"""
 
 		api_call = "replace_dom"
