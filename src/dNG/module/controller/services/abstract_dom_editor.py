@@ -18,22 +18,23 @@ https://www.direct-netware.de/redirect?licenses;mpl2
 #echo(__FILEPATH__)#
 """
 
-from dNG.pas.controller.abstract_response import AbstractResponse
-from dNG.pas.data.text.input_filter import InputFilter
-from dNG.pas.data.xhtml.oset.file_parser import FileParser
+from dNG.controller.abstract_response import AbstractResponse
+from dNG.data.text.input_filter import InputFilter
+from dNG.data.xhtml.oset.file_parser import FileParser
+
 from .module import Module
 
 class AbstractDomEditor(Module):
 #
 	"""
-"DomEditor" is used to handle API calls that might change the client DOM
-tree.
+"DomEditor" implementations are used to handle API calls that might change
+the client DOM tree.
 
-:author:     direct Netware Group
+:author:     direct Netware Group et al.
 :copyright:  (C) direct Netware Group - All rights reserved
 :package:    pas.http
 :subpackage: dom_editor
-:since:      v0.1.00
+:since:      v0.2.00
 :license:    https://www.direct-netware.de/redirect?licenses;mpl2
              Mozilla Public License, v. 2.0
 	"""
@@ -43,7 +44,7 @@ tree.
 		"""
 Constructor __init__(AbstractDomEditor)
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		Module.__init__(self)
@@ -60,7 +61,7 @@ ID of the client DOM tree to manipulate.
 Checks if the response instance supports returning API result dicts.
 
 :return: (bool) True if supported
-:since:  v0.1.00
+:since:  v0.2.00
 		"""
 
 		return (False
@@ -79,7 +80,7 @@ target DOM ID does not correspond to the one calling the server API.
 :param template_name: OSet template name
 :param content: Content object
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -98,7 +99,7 @@ to the one calling the server API.
 
 :param dom_value: DOM value to response
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		api_call = "append_dom"
@@ -122,7 +123,7 @@ to the one calling the server API.
 		"""
 Activates the client API "destroy_dom".
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		result = kwargs
@@ -138,7 +139,7 @@ Sets the ID of the client DOM tree to manipulate.
 
 :param dom_id: ID of the client DOM tree
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		self.dom_id = dom_id
@@ -155,7 +156,7 @@ server API.
 :param template_name: OSet template name
 :param content: Content object
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -174,7 +175,7 @@ target DOM ID does not correspond to the one calling the server API.
 
 :param dom_value: DOM value to response
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		api_call = "append_overlay_dom"
@@ -203,7 +204,7 @@ target DOM ID does not correspond to the one calling the server API.
 :param template_name: OSet template name
 :param content: Content object
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		oset = self.request.get_dsd("doset")
@@ -222,7 +223,7 @@ correspond to the one calling the server API.
 
 :param dom_value: DOM value to response
 
-:since: v0.1.00
+:since: v0.2.00
 		"""
 
 		api_call = "replace_dom"
